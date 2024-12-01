@@ -1,0 +1,38 @@
+syntax = "proto3";
+
+package demo;
+
+service Manager {
+  rpc Handshake (ClientRequest) returns (ManagerReply) {}
+  rpc liveness (NodeAddr) returns (Empty) {}
+}
+message ClientRequest {
+  int32 user_id = 1;
+}
+message ManagerReply {
+  map<uint32, string> nodes = 1;
+}
+message NodeAddr{
+  string addr = 1;
+}
+message Empty{}
+//Storage Node RPC calls
+service Storage{
+  rpc get (ClientKey) returns (ClientValue) {}
+  rpc put (KeyValue) returns (Ack) {}
+}
+message ClientKey{
+  uint32 key = 1;
+}
+message ClientValue{
+  string value = 1;
+  int32 id = 2;
+}
+message KeyValue{
+  uint32 key = 1;
+  string value =2;
+  bool rep = 3;
+}
+message Ack{
+  int32 id = 1;
+}
