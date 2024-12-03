@@ -6,6 +6,8 @@
 #include <ext/stdio_filebuf.h>
 
 #include "gtstore.hpp"
+#include "gtnode.hpp"
+
 class ClientLog{
 	public:
 		int key;
@@ -30,7 +32,7 @@ class ManagerLog{
 		//this map contains nodes that have died.
 		std::set<int> dead;
 };
-void client_put(ClientLog *log, int key, string value){
+void client_put(ClientLog *log, std::string addr, int key, string value){
 	int pipefd[2];
     pid_t pid;
     char buffer[1024];
@@ -45,6 +47,8 @@ void client_put(ClientLog *log, int key, string value){
 		std::vector<char*> argv;
 		string key_str = to_string(key);
 		argv.push_back("./build/src/client");
+		argv.push_back("--a");
+		argv.push_back(addr.data());
 		argv.push_back("--put");
 		argv.push_back(key_str.data());
 		argv.push_back("--val");
@@ -84,7 +88,7 @@ void client_put(ClientLog *log, int key, string value){
 	}
 	return;
 }
-void client_get(ClientLog* log, int key){
+void client_get(ClientLog* log, std::string addr, int key){
 	int pipefd[2];
     pid_t pid;
     char buffer[1024];
@@ -99,6 +103,8 @@ void client_get(ClientLog* log, int key){
 		std::vector<char*> argv;
 		string key_str = to_string(key);
 		argv.push_back("./build/src/client");
+		argv.push_back("--a");
+		argv.push_back(addr.data());
 		argv.push_back("--get");
 		argv.push_back(key_str.data());
 		argv.push_back(nullptr);
@@ -134,7 +140,7 @@ void client_get(ClientLog* log, int key){
 	}
 	return;
 }
-void manager_setup(ManagerLog* log, int n, int k){
+void manager_setup(ManagerLog* log, std::string addr, int n, int k){
 	int pipe_fds[2];
     if (pipe(pipe_fds) == -1) {
         perror("pipe creation failed");
@@ -154,6 +160,8 @@ void manager_setup(ManagerLog* log, int n, int k){
 		argv.push_back(n_str.data());
 		argv.push_back("-k");
 		argv.push_back(k_str.data());
+		argv.push_back("-a");
+		argv.push_back(addr.data());
 		argv.push_back(nullptr);
 		execv(argv[0], argv.data());
 
@@ -199,58 +207,58 @@ void manager_setup(ManagerLog* log, int n, int k){
 	return;
 }
 
-void single_set_get(){
+void single_set_get(std::string addr){
 	//set-up node with one storage server
 	ManagerLog mlog;
-	std::thread worker(manager_setup, &mlog, 1, 1);
+	std::thread worker(manager_setup, &mlog, addr, 1, 1);
 	//wait until manager has been created.
 	ClientLog log;
 	while(mlog.active.size() == 0){
 		sleep(.1);
 		continue;
 	}
-	client_put(&log, 0, "Hello");
-	client_put(&log, 1, "GT");
-	client_put(&log, 2, "Store!");
-	client_get(&log, 0);
-	client_get(&log, 1);
-	client_get(&log, 2);
+	client_put(&log, addr, 0, "Hello");
+	client_put(&log, addr,1, "GT");
+	client_put(&log, addr,2, "Store!");
+	client_get(&log, addr,0);
+	client_get(&log, addr,1);
+	client_get(&log, addr,2);
 	
 	mlog.end_test = true;
 	worker.join();
 	return;
 }
 
-void multi_set_get(){
+void multi_set_get(std::string addr){
 	ManagerLog mlog;
-	std::thread worker(manager_setup, &mlog, 5, 3);
+	std::thread worker(manager_setup, &mlog,addr, 5, 3);
 	//Wait to allow manager time to setup.
 	ClientLog log;
 	while(mlog.active.size() != 5){
 		sleep(.1);
 		continue;
 	}
-	client_put(&log, 10, "Hello");
-	client_put(&log, 11, "GT");
-	client_put(&log,22, "Store!");
-	client_put(&log,36, "I have");
-	client_put(&log,47, "many storage");
-	client_put(&log,509, "Nodes. Cool!");
-	client_put(&log,36, "Be Careful when over-writing!!!");
-	client_get(&log,10);
-	client_get(&log,11);
-	client_get(&log,22);
-	client_get(&log,36);
-	client_get(&log,47);
-	client_get(&log,509);
+	client_put(&log, addr,10, "Hello");
+	client_put(&log, addr,11, "GT");
+	client_put(&log,addr,22, "Store!");
+	client_put(&log,addr,36, "I have");
+	client_put(&log,addr,47, "many storage");
+	client_put(&log,addr,509, "Nodes. Cool!");
+	client_put(&log,addr,36, "Be Careful when over-writing!!!");
+	client_get(&log,addr,10);
+	client_get(&log,addr,11);
+	client_get(&log,addr,22);
+	client_get(&log,addr,36);
+	client_get(&log,addr,47);
+	client_get(&log,addr,509);
 	mlog.end_test = true;
 	worker.join();
 	return;
 }
-void single_node_fail(){
+void single_node_fail(std::string addr){
 	std::srand(std::time(0)); 
 	ManagerLog mlog;
-	std::thread worker(manager_setup, &mlog, 3, 2);
+	std::thread worker(manager_setup, &mlog,addr, 3, 2);
 	//wait until manager has been created.
 	ClientLog log;
 	while(mlog.active.size() != 3){
@@ -268,26 +276,26 @@ void single_node_fail(){
 	int num;
 	for( int i = 0; i < 10; i++){
 		num = min + std::rand() % (max - min + 1); 
-		client_put(&log, num, strings[i]);
+		client_put(&log,addr, num, strings[i]);
 		curr = log.node;
 		count[curr]++;
 		keys[curr].push_back(num);
 		if(count[curr] == 4) break;
 	}
 	cout << "Overwriting..." << endl;
-	client_put(&log, num, "Overwrite!!");
+	client_put(&log, addr,num, "Overwrite!!");
 	//kill the node with the most keys.
 	kill(mlog.active[curr], SIGKILL);
 	for(int key : keys[curr]){
-		client_get(&log, key);
+		client_get(&log,addr, key);
 	}
 	mlog.end_test = true;
 	worker.join();
 }
-void multi_node_fail(){
+void multi_node_fail(std::string addr){
 	std::srand(std::time(0)); 
 	ManagerLog mlog;
-	std::thread worker(manager_setup, &mlog, 7, 3);
+	std::thread worker(manager_setup, &mlog, addr,7, 3);
 	//wait until manager has been created.
 	ClientLog log;
 	while(mlog.active.size() != 7){
@@ -306,7 +314,7 @@ void multi_node_fail(){
 	int num;
 	for( int i = 0; i < 20; i++){
 		num = min + std::rand() % (max - min + 1); 
-		client_put(&log, num, strings[i]);
+		client_put(&log, addr,num, strings[i]);
 		curr = log.node;
 		count[curr]++;
 		keys[curr].push_back(num);
@@ -315,13 +323,13 @@ void multi_node_fail(){
 	max = 20;
 	cout << "Overwriting..." << endl;
 	num = min + std::rand() % (max - min + 1); 
-	client_put(&log, rands[num], "Overwrite 1!!!");
+	client_put(&log, addr,rands[num], "Overwrite 1!!!");
 	num = min + std::rand() % (max - min + 1); 
-	client_put(&log, rands[num], "Overwrite 2!!!");
+	client_put(&log, addr,rands[num], "Overwrite 2!!!");
 	num = min + std::rand() % (max - min + 1); 
-	client_put(&log, rands[num], "Overwrite 3!!!");
+	client_put(&log, addr,rands[num], "Overwrite 3!!!");
 	//kill the node with the most keys.
-	max = 7;
+	max = 6;
 	num = min + std::rand() % (max - min + 1); 
 	cout << "Killing..." << endl;
 	cout << "Killing node " << num << endl;
@@ -331,101 +339,76 @@ void multi_node_fail(){
 	cout << "Killing node " << new_num << endl;
 	kill(mlog.active[new_num], SIGKILL);
 	for(int key : rands){
-		client_get(&log, key);
+		client_get(&log, addr,key);
 	}
 	mlog.end_test = true;
 	worker.join();
 }
-void silent_client_put(int key, string value){
-	pid_t pid = fork();
-	if(pid == 0){
-		std::vector<char*> argv;
-		string key_str = to_string(key);
-		argv.push_back("./build/src/client");
-		argv.push_back("--put");
-		argv.push_back(key_str.data());
-		argv.push_back("--val");
-		argv.push_back(value.data());
-		argv.push_back(nullptr);
-		execv(argv[0], argv.data());
-		std::cerr << "Exec failed: " << strerror(errno) << std::endl;
-     	 _exit(EXIT_FAILURE);
-	}
-	return;
-}
-void silent_client_get(int key){
-	pid_t pid = fork();
-	if(pid == 0){
-		std::vector<char*> argv;
-		string key_str = to_string(key);
-		argv.push_back("./build/src/client");
-		argv.push_back("--get");
-		argv.push_back(key_str.data());
-		argv.push_back(nullptr);
-		execv(argv[0], argv.data());
-		std::cerr << "Exec failed: " << strerror(errno) << std::endl;
-     	 _exit(EXIT_FAILURE);
-	}
-	return;
-}
-void throughput(){
+// IMPORTANT!!!! Before running, comment/uncomment code in client.cpp. I did not fully implement as I ran throughput/load balancing tests only once.
+void throughput(std::string addr){
 	std::srand(std::time(0)); 
 	ManagerLog mlog;
-	std::thread worker(manager_setup, &mlog, 7, 1);
+	std::thread worker(manager_setup, &mlog, addr,7, 5);
 	//wait until manager has been created.
 	ClientLog log;
 	while(mlog.active.size() != 7){
 		sleep(.1);
 		continue;
 	}
-	for(int n = 0; n < 50; n++){
-		silent_client_put(n, "GETTING");
-	}
-	int min = 0;
-    int max = 1;
-	int num;
-	int key;
-	#pragma omp parallel for
-	for(int i = 50; i < 200050; i++){
-		num = min + std::rand() % (max - min + 1); 
-		if(num == 0){
-			//cout << "Putting..." << endl;
-			silent_client_put(i, "DEFAULT");
+	pid_t pids[10]; 
+	TimePoint then = Clock::now();
+	for(int i = 0; i < 10; i++){
+		pid_t pid = fork();
+		if(pid == 0){
+			std::vector<char*> argv;
+			string start_string = to_string(i*20000);
+			argv.push_back("./build/src/client");
+			//argv.push_back("--get");
+			argv.push_back(start_string.data());
+			argv.push_back(nullptr);
+
+			execv(argv[0], argv.data());
 		}
 		else{
-			key = std::rand() % 50;
-			//cout << "Getting..." << endl;
-			silent_client_get(key);
-		}
-		if(i % 1000 == 0){
-			cout << i << endl;
+			pids[i] = pid;
 		}
 	}
+	int status;
+	for(int i = 0; i < 10; i++){
+		waitpid(pids[i], &status, 0);
+	}
+	TimePoint now = Clock::now();
+        auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
+            now - then
+    ).count();
+	cout << "Time for 200000 requests: " << elapsed << endl;
+	mlog.end_test = true;
+	worker.join();
 	return;
 }
 int main(int argc, char **argv) {
 	string test = string(argv[1]);
-	//int client_id = atoi(argv[2]);
-
+	string addr = string(argv[2]);
 	string test1 = "single_set_get";
 	string test2 = "multi_set_get";
 	string test3 = "single_node_fail";
 	string test4 = "multi_node_fail";
 	string test5 = "throughput";
 	if (test ==  test1) {
-		single_set_get();
+		single_set_get(addr);
 	}
 	if (test ==  test2) {
-		multi_set_get();
+		multi_set_get(addr);
 	}
 	if(test==test3){
-		single_node_fail();
+		single_node_fail(addr);
 	}
 	if(test == test4){
-		multi_node_fail();
+		multi_node_fail(addr);
 	}
 	if(test == test5){
-		throughput();
+		cout << "Not implemented..." << endl;
+		//throughput(); - not fully implemented - currently need to edit client.cpp
 	}
 	return 1;
 }

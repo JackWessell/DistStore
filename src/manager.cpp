@@ -119,35 +119,45 @@ void setup_signal_handler() {
 }
 
 int main(int argc, char **argv){
-  int port = 50051;
   int num_nodes;
   int replication;
   //setup the SIGTERM handler for our manager. This will kill all child processes (storage nodes).
   setup_signal_handler();
-  if(argc != 5){
-    std::cout << "Usage: ./manager -n NUM_STORAGE_NODES -k REPLICATION_COUNT" << std::endl;
+  std::string master_port;
+  if(argc != 7){
+    std::cout << "Usage: ./manager -n NUM_STORAGE_NODES -k REPLICATION_COUNT -a SERVER_ADDRESS" << std::endl;
     return 0;
   }
   for(int i = 1; i < argc; i++){
     if(i == 1 && strcmp(argv[i], "-n") != 0){
-      std::cout << "Usage: ./manager -n NUM_STORAGE_NODES -k REPLICATION_COUNT" << std::endl;
+      std::cout << "Usage: ./manager -n NUM_STORAGE_NODES -k REPLICATION_COUNT -a SERVER_ADDRESS" << std::endl;
       return 0;
     }
     else if(i==1){
       num_nodes = std::stoi(argv[i+1]);
     }
     if(i == 3 && strcmp(argv[i], "-k") != 0){
-      std::cout << "Usage: ./manager -n NUM_STORAGE_NODES -k REPLICATION_COUNT" << std::endl;
+      std::cout << "Usage: ./manager -n NUM_STORAGE_NODES -k REPLICATION_COUNT -a SERVER_ADDRESS" << std::endl;
       return 0;
     }
     else if(i==3){
       replication = std::stoi(argv[i+1]);
     }
+    if(i == 5 && strcmp(argv[i], "-a") != 0){
+      std::cout << "Usage: ./manager -n NUM_STORAGE_NODES -k REPLICATION_COUNT -a SERVER_ADDRESS" << std::endl;
+      return 0;
+    }
+    else if(i==5){
+      master_port = argv[i+1];
+    }
   }
   GTStoreManager manager;
   RandomGenerator gen(42);
-  std::string master_port = "0.0.0.0:50051";
+  
   manager.initialize(master_port);
+  int idx = master_port.find(':');
+  int port = stoi(master_port.substr(idx+1));
+  cout << port << endl;
   std::string address;
   int child_port = port + 1;
   for(int i = 0; i < num_nodes; i++){

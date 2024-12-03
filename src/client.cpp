@@ -38,7 +38,7 @@ void GTStoreClient::handshake(){
       return;
   }
 }
-bool GTStoreClient::put(std::string addr, uint32_t key, std::string val){
+int GTStoreClient::put(std::string addr, uint32_t key, std::string val){
     std::shared_ptr<Channel> channel;
     channel = grpc::CreateChannel(addr, grpc::InsecureChannelCredentials());
     std::unique_ptr<Storage::Stub> storage_stub = Storage::NewStub(channel);
@@ -56,7 +56,7 @@ bool GTStoreClient::put(std::string addr, uint32_t key, std::string val){
             );
       Status status = storage_stub->put(&context, request, &response);
       if(status.ok()){
-        //std::cout << "Successfully put: \'" << val << "\' onto node: "<< response.id() << " with key: \'" << key << "\'" << std::endl;
+        std::cout << "Successfully put: \'" << val << "\' onto node: "<< response.id() << " with key: \'" << key << "\'" << std::endl;
         break;
       }
       else{
@@ -71,8 +71,7 @@ bool GTStoreClient::put(std::string addr, uint32_t key, std::string val){
         storage_stub = Storage::NewStub(channel);
       }
     }
-    
-    return true;
+    return response.id();
 }
 
 std::string GTStoreClient::get(std::string addr, uint32_t key){
@@ -91,7 +90,7 @@ std::string GTStoreClient::get(std::string addr, uint32_t key){
             );
       Status status = storage_stub->get(&context, request, &response);
       if(status.ok()){
-        //std::cout << "Received \'"<< response.value() << "\' using key \'" << key << "\' from node " << response.id() << std::endl;
+        std::cout << "Received \'"<< response.value() << "\' using key \'" << key << "\' from node " << response.id() << std::endl;
         break;
       }
       else{
@@ -137,23 +136,51 @@ std::string GTStoreClient::get_node(uint32_t key){
 }
 int main(int argc, char **argv)
 {
-  std::string target_str = "0.0.0.0:50051";
+  std::string target_str = argv[2];
   GTStoreClient greeter(
     grpc::CreateChannel(target_str, grpc::InsecureChannelCredentials())
   );
   greeter.init(10);
   //greeter.get_map();
-  uint32_t val = (uint32_t) stoi(argv[2]);
+  //############################# Real Code ################################
+  uint32_t val = (uint32_t) stoi(argv[4]);
   std::string addr = greeter.get_node(val);
-
-  if (strcmp(argv[1], "--put") == 0){
-    greeter.put(addr, stoi(argv[2]), std::string(argv[4]));
+  if (strcmp(argv[3], "--put") == 0){
+    greeter.put(addr, stoi(argv[4]), std::string(argv[6]));
   }
-  else if(strcmp(argv[1], "--get") == 0){
-    greeter.get(addr, stoi(argv[2]));
+  else if(strcmp(argv[3], "--get") == 0){
+    greeter.get(addr, stoi(argv[4]));
   }
   else{
-    cout << "Usage: ./client --put <KEY> --val <VALUE> OR ./client --get <KEY>" << std::endl;
+    cout << "Usage: ./client -a ADDRESS --put <KEY> --val <VALUE> OR ./client -a ADDRESS --get <KEY>" << std::endl;
   }
+  //############################ Load balancing test ########################
+  /*
+  std::map<int, int> counter;
+  int node;
+  for(uint32_t i = 0; i< 100000; i++){
+    node = greeter.put(greeter.get_node(i), i, "DEFAULT");
+    counter[node]++;
+  }
+  for(int j = 0; j < 7; j++){
+    cout << "Node " << j << " is responsible for " << counter[j] << " keys." << endl;
+  }*/
+  //############################ Throughput test ############################
+  /*
+  for(uint32_t i = 0; i < 50; i++){
+    greeter.put(greeter.get_node(i), i, "PLACING");
+  }
+  int num;
+  #pragma omp parallel for
+  for(uint32_t start = (uint32_t) stoi(argv[1]); start < stoi(argv[1]) + 20000; start++){
+    if(start % 2 == 0){
+        greeter.put(greeter.get_node(start), start, "DEFAULT");
+    }
+    else{
+        num = std::rand() % 50;
+        greeter.get(greeter.get_node(num), num);
+    }
+  }
+  */
   return 0;
 }

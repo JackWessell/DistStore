@@ -13,7 +13,6 @@ set(_GRPC_CPP_PLUGIN_EXECUTABLE $<TARGET_FILE:grpc_cpp_plugin>)
 
 add_subdirectory(proto)
 
-find_package(MPI REQUIRED)
 
 add_library(MyLibHeaders INTERFACE)
 target_include_directories(MyLibHeaders INTERFACE include)
@@ -65,6 +64,5 @@ target_link_libraries(test_app
         project_options
         project_warnings
         demo_grpc_proto
-        MPI::MPI_CXX
         )
 target_include_directories(test_app PUBLIC include)

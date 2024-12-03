@@ -1,10 +1,10 @@
-# gRPC Demo for CS6210 Project 4
+# Distributed key-value store with gRPC
 
-The globally installed version of cmake on advos is too old for this to work, so if you want to do this on advos, [install cmake locally](#install-cmake-locally-without-sudo), then skip to [Building the Demo](#building-the-demo). If you are running on your own machine, make sure all of the dependencies are installed. After the project 3 deadline, we plan to upgrade the cmake on advos to eliminate the first step.
+In this project I developed a distributed key-value store that allows clients to interact with a system consisting of a manager node and n storage nodes to store key-value pairs. To facilitate communication between nodes, I utilized Google's gRPC library. First I will describe how to install necessary libraries and then how to run my code.
 
 ## Dependencies
 ### Install cmake locally without sudo
-Install cmake locally (you can do this on advos without sudo):
+Install cmake locally:
 ```shell
 wget https://github.com/Kitware/CMake/releases/download/v3.23.0/cmake-3.23.0-linux-x86_64.sh
 mkdir -p $HOME/localcmake 
@@ -35,26 +35,37 @@ ninja --version #Check install
 
 ## Building the Demo
 ```shell
-git clone https://github.com/danieldzahka/gRPC_Demo.git
-cd gRPC_Demo
-cmake -S . -B ./build #-G Ninja (optional: add this if you installed ninja-build)
+https://github.com/JackWessell/DistStore.git
+cd DistStore
+cmake -S . -B ./build #-G Ninja (optional: add this if you installed ninja-build as it will decrease build time)
 cmake --build ./build --target client server
 ```
+Note: This process is a bit slow the first time around. 
 
 ## Running Server & Client
-If you are on advos, make sure you are [using unique port](#a-note-about-ports)
-
 In one terminal:
 ```shell
 cd build
-./src/server
+./src/manager -n NUMBER_OF_STORAGE_NODES -k REPLICATION_PARAM -a ADDRESS
 ```
+This will create a manager node which will automatically spawn n child processes to act as storage nodes. Currently, the application only accepts localhost addresses that do not start with a zero. So, the smallest valid address is 0.0.0.0:10000. 
 
-In a different terminal:
+In a different terminal, to put values:
 ```shell
 cd build
-./src/client
+./src/client -a ADDRESS --put KEY --val VALUE
 ```
+And to get values:
+```shell
+cd build
+./src/client -a ADDRESS --get KEY
+```
+The address for both of these calls should be the same that you used to spawn the manager.
+## Running tests
+The repository also contains a bash script for testing the behavior of my code. It tests a single server put/get, multi-server put/get with over-writing, a multi-server, single node failure put/get, and a multi-server, multi-node failure put/get. To run these tests, simply do the following:
+```shell
+cd ..
+./src/run.sh ADDRESS
+```
+A note on these tests: for the node failure tests, the client programs will eventually try to contact a dead node. They will hang until the manager realizes these nodes are dead and updates the system state. The code has not failed - just wait a little and progress should pick back up.
 
-## A Note about ports
-If you are running on a shared machine (like advos) you will need to run your server/client on a port that doesn't conflict with other students on the same machine.
