@@ -152,12 +152,11 @@ int main(int argc, char **argv){
     }
   }
   GTStoreManager manager;
-  RandomGenerator gen(42);
+  RandomGenerator gen(234567890);
   
   manager.initialize(master_port);
   int idx = master_port.find(':');
   int port = stoi(master_port.substr(idx+1));
-  cout << port << endl;
   std::string address;
   int child_port = port + 1;
   for(int i = 0; i < num_nodes; i++){
@@ -198,7 +197,7 @@ int main(int argc, char **argv){
       //distributed across multiple nodes.
       for(int j = 0; j < num_nodes; j++){
         process_list.push_back(pid);
-        int rand = gen.get_random();
+        uint32_t rand = gen.get_random();
         manager.start_liveness(address);
         manager.add_node(rand, address);
       }

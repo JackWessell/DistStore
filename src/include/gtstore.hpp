@@ -60,9 +60,8 @@ class GTStoreClient {
 		void init(int id);
 		void get_map();
 		void finalize();
-		//change to use string key and val_t value soon - just want to get core functionality down first.
-		std::string get(string addr, uint32_t key);
-		int put(string addr, uint32_t key, string value);
+		std::string get(string key);
+		int put(string key, string value);
 		std::string get_node(uint32_t key);
 		void handshake();
 };

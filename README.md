@@ -60,7 +60,7 @@ And to get values:
 cd build
 ./src/client -a ADDRESS --get KEY
 ```
-The address for both of these calls should be the same that you used to spawn the manager.
+The address for both of these calls should be the same that you used to spawn the manager. The client API is capable of mapping string keys to string values.
 ## Running tests
 The repository also contains a bash script for testing the behavior of my code. It tests a single server put/get, multi-server put/get with over-writing, a multi-server, single node failure put/get, and a multi-server, multi-node failure put/get. To run these tests, simply do the following:
 ```shell

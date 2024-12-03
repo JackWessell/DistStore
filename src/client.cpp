@@ -38,12 +38,18 @@ void GTStoreClient::handshake(){
       return;
   }
 }
-int GTStoreClient::put(std::string addr, uint32_t key, std::string val){
+int GTStoreClient::put(std::string key, std::string val){
+    //create integer key from string and get our node.
+    void * hash = malloc(sizeof(uint32_t));
+    MurmurHash3_x86_32(key.c_str(), sizeof(char)*key.length(), 0, hash);
+    uint32_t hashed =  ((uint32_t*) hash)[0];
+    std::string addr = get_node(hashed);
+
     std::shared_ptr<Channel> channel;
     channel = grpc::CreateChannel(addr, grpc::InsecureChannelCredentials());
     std::unique_ptr<Storage::Stub> storage_stub = Storage::NewStub(channel);
     KeyValue request;
-    request.set_key(key);
+    request.set_key(hashed);
     request.set_value(val);
     //client tells storage node it should replicate - i.e it is the primary node.
     request.set_rep(true);
@@ -66,7 +72,7 @@ int GTStoreClient::put(std::string addr, uint32_t key, std::string val){
                 );
         //if a node is down, get new information from manager and try again
         handshake();
-        addr = get_node(key);
+        addr = get_node(hashed);
         channel = grpc::CreateChannel(addr, grpc::InsecureChannelCredentials());
         storage_stub = Storage::NewStub(channel);
       }
@@ -74,12 +80,17 @@ int GTStoreClient::put(std::string addr, uint32_t key, std::string val){
     return response.id();
 }
 
-std::string GTStoreClient::get(std::string addr, uint32_t key){
+std::string GTStoreClient::get(std::string key){
+    void * hash = malloc(sizeof(uint32_t));
+    MurmurHash3_x86_32(key.c_str(), sizeof(char)*key.length(), 0, hash);
+    uint32_t hashed =  ((uint32_t*) hash)[0];
+    std::string addr = get_node(hashed);
+
     std::shared_ptr<Channel> channel;
     channel = grpc::CreateChannel(addr, grpc::InsecureChannelCredentials());
     std::unique_ptr<Storage::Stub> storage_stub = Storage::NewStub(channel);
     ClientKey request;
-    request.set_key(key);
+    request.set_key(hashed);
     ClientContext context;
     ClientValue response;
     while(true){
@@ -100,7 +111,7 @@ std::string GTStoreClient::get(std::string addr, uint32_t key){
                 );
         //if a node is down, get new information from manager, update our connection, and try again
         handshake();
-        addr = get_node(key);
+        addr = get_node(hashed);
         channel = grpc::CreateChannel(addr, grpc::InsecureChannelCredentials());
         storage_stub = Storage::NewStub(channel);
       }
@@ -136,20 +147,24 @@ std::string GTStoreClient::get_node(uint32_t key){
 }
 int main(int argc, char **argv)
 {
+  if(argc != 5 && argc != 7){
+    cout << argc << endl;
+    cout << "Usage: ./client -a ADDRESS --put <KEY> --val <VALUE> OR ./client -a ADDRESS --get <KEY>" << std::endl;
+    return 0;
+  }
   std::string target_str = argv[2];
   GTStoreClient greeter(
     grpc::CreateChannel(target_str, grpc::InsecureChannelCredentials())
   );
   greeter.init(10);
   //greeter.get_map();
-  //############################# Real Code ################################
-  uint32_t val = (uint32_t) stoi(argv[4]);
-  std::string addr = greeter.get_node(val);
+  //############################# Real Code ################################  
+
   if (strcmp(argv[3], "--put") == 0){
-    greeter.put(addr, stoi(argv[4]), std::string(argv[6]));
+    greeter.put(string(argv[4]), std::string(argv[6]));
   }
   else if(strcmp(argv[3], "--get") == 0){
-    greeter.get(addr, stoi(argv[4]));
+    greeter.get(string(argv[4]));
   }
   else{
     cout << "Usage: ./client -a ADDRESS --put <KEY> --val <VALUE> OR ./client -a ADDRESS --get <KEY>" << std::endl;
@@ -158,8 +173,10 @@ int main(int argc, char **argv)
   /*
   std::map<int, int> counter;
   int node;
+  int num;
   for(uint32_t i = 0; i< 100000; i++){
-    node = greeter.put(greeter.get_node(i), i, "DEFAULT");
+    num = std::rand() % 2000000;
+    node = greeter.put(greeter.get_node(num), num, "DEFAULT");
     counter[node]++;
   }
   for(int j = 0; j < 7; j++){
