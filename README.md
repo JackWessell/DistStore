@@ -38,7 +38,7 @@ ninja --version #Check install
 https://github.com/JackWessell/DistStore.git
 cd DistStore
 cmake -S . -B ./build #-G Ninja (optional: add this if you installed ninja-build as it will decrease build time)
-cmake --build ./build --target client server
+cmake --build ./build --target manager client storage test_app
 ```
 Note: This process is a bit slow the first time around. 
 
